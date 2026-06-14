@@ -10,9 +10,9 @@ The following table summarizes how the CS3 execution model maps to familiar CUDA
 | :--- | :--- | :--- |
 | **Wafer** | **Grid** | The entire physical array of PEs. |
 | **Processing Element (PE)** | **Thread** | The smallest unit of execution. |
-| **Tile** | **Block** | A grouping of PEs that can synchronize and communicate efficiently. |
+| **Tile** | **Block** | A grouping of PEs that act as an isolated scheduling and communication unit. |
 | **Local SRAM** | **Shared Memory** | Private high-speed memory local to each PE. |
-| **Weight Server** | **Global Memory** | External DRAM accessed via the IO fabric. |
+| **Weight Server** | **Global Memory** | External DRAM accessed asynchronously by all PEs via the IO fabric. |
 
 ---
 
@@ -39,8 +39,13 @@ Wafer (Grid)
 +---------------------------------------+
 ```
 
-- **Communication:** PEs within the same tile communicate via a high-speed bidirectional mesh. The latency is typically 1 cycle per hop.
+- **Hierarchical Scheduling:** Blocks are the primary unit of scheduling. The scheduler manages blocks independently, and their execution order is not guaranteed.
+- **Isolation Boundary:** A block serves as a strict isolation boundary. PEs in Block A cannot communicate with PEs in Block B via the mesh.
+- **Intra-Block Communication:** PEs within the same tile communicate via a high-speed bidirectional mesh (NESW links). The latency is typically 1 cycle per hop. These links are only active for communication within the boundaries of a single block; mesh packets attempting to cross a block boundary are dropped or trigger an error.
 - **Synchronization:** Tiles are the unit of synchronization. The `SYNC` instruction acts as a barrier, ensuring all PEs within a specific tile have reached the same point in execution before proceeding.
+
+## Block-Local Communication
+The mesh network on the CS3 wafer is effectively partitioned into **block-local islands**. While the physical wiring exists across the entire wafer, the logical execution model restricts mesh traffic to the interior of the currently executing block. This ensures that kernels can be scaled and scheduled across the wafer without worrying about inter-block interference or race conditions on the mesh.
 
 ---
 
@@ -54,6 +59,9 @@ Each PE is equipped with a dedicated memory hierarchy to minimize latency:
 
 ### External Storage (The Weight Server)
 There is no global device memory located on the wafer itself. Large tensors and model weights reside on an external **Weight Server** (DRAM). This memory is accessed via the IO fabric, which consists of 12x 100Gbps IO links.
+
+- **Global Access:** All PEs across the wafer can issue loads and stores to the Weight Server.
+- **Asynchronous Nature:** These operations are asynchronous and high-latency compared to local SRAM or mesh communication.
 
 ---
 
@@ -71,7 +79,7 @@ The typical lifecycle of a kernel execution is as follows:
 
 1. **Allocation:** The Host allocates memory on the Weight Server.
 2. **Data Transfer:** The Host issues a `memcpy` to transfer initial data to the device via the IO links.
-3. **Launch:** The Host enqueues the kernel launch, specifying grid and tile dimensions.
-4. **Execution:** All PEs begin executing the kernel program in parallel.
+3. **Launch:** The Host enqueues the kernel launch, specifying grid (800x900) and tile (e.g., 16x16) dimensions.
+4. **Execution:** The scheduler manages blocks independently. All PEs begin executing the kernel program in parallel, but block-level scheduling determines when specific tiles are active.
 5. **Iteration:** PEs perform compute $\rightarrow$ communicate $\rightarrow$ `SYNC` cycles.
 6. **Retrieval:** Upon completion, the Host issues a `memcpy` to pull results back from the device.

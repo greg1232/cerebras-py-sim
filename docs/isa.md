@@ -28,10 +28,13 @@ The CS3 ISA is designed for high-throughput tensor operations and dataflow execu
 
 ### 3.4 Control Flow
 - **Branching:** Conditional execution based on SIMD mask registers.
-- **Sync:** Barrier synchronization for bulk-synchronous parallel (BSP) phases.
+- **Sync:** Block-Local Barrier. Synchronizes PEs only within the same block, not across the entire wafer.
 
-## 4. SIMD Execution Model
+## 4. Hardware Constraints
+The mesh interconnect hardware enforces hierarchical block isolation. All `SEND_*` and `RECV_*` instructions are gated by the current Block ID. If a `SEND` operation attempts to cross a block boundary, it is treated as a NOP or triggers a hardware exception, depending on the system configuration.
+
+## 5. SIMD Execution Model
 Instructions are executed in a Single Instruction, Multiple Data (SIMD) fashion. A mask register determines which of the 8 lanes are active for a given operation.
 
-## 5. Dataflow Triggering
+## 6. Dataflow Triggering
 The ISA supports a "trigger" mechanism where instructions are not merely sequential but can be gated by the arrival of packets on the 16-bit bidirectional mesh.

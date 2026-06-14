@@ -20,6 +20,9 @@ Used for compute SIMD and cast operations.
 
 ### M-Type (Mesh)
 Used for mesh network communication.
+
+**Runtime Constraint:** The effective destination of mesh instructions is constrained by the current Block configuration; boundary crossings are blocked by hardware.
+
 ```
 | 31      26 | 25    21 | 20    18 | 17      0 |
 |   Opcode   |    reg    | direction |   unused   |
