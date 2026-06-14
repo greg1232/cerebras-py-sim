@@ -68,7 +68,9 @@ class Core:
     def write_sram_f32(self, addr: int, val: float):
         if addr + 4 > len(self.sram):
             raise MemoryError(f"SRAM Out of Bounds at {addr}")
-        self.sram[addr:addr+4] = np.asarray([val], dtype=np.float32).tobytes()
+        self.sram[addr:addr+4] = np.frombuffer(
+            np.asarray([val], dtype=np.float32).tobytes(), dtype=np.uint8
+        )
 
     def execute_vadd(self, rs1: int, rs2: int, rd: int):
         """Vector Addition: rd = rs1 + rs2 (masked)"""
