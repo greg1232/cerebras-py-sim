@@ -1,0 +1,42 @@
+MESH_WIDTH = 800
+MESH_HEIGHT = 900
+
+SRAM_SIZE_BYTES = 48 * 1024
+
+NUM_REGS = 32
+
+SIMD_LANES = 8
+
+CLK_BASE = 750
+CLK_MID = 850
+CLK_BOOST = 1200
+CLK_MAX = 1400
+
+MESH_BUFFER_CAPACITY = 16
+
+IO_LINK_COUNT = 12
+IO_LINK_BPS = 100 * 10**9
+IO_BANDWIDTH_BPS = IO_LINK_COUNT * IO_LINK_BPS
+
+LATENCIES = {
+    'VADD': 1,
+    'VSUB': 1,
+    'VMUL': 1,
+    'VDIV': 4,
+    'VFMADD': 1,
+    'VEXP': 5,
+    'VLOG': 5,
+    'VSQRT': 3,
+    'VRELU': 1,
+    'VGELU': 8,
+    'VSIGMOID': 6,
+    'VTANH': 6,
+    'LDR': 1,
+    'STR': 1,
+    'LDR_GLOBAL': 100,
+    'STR_GLOBAL': 100,
+    'SYNC': 1,
+    'HALT': 0,
+    'B_JMP': 1,
+    'B_COND': 1,
+}
