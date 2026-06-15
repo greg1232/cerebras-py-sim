@@ -147,6 +147,48 @@ class ASTParser:
             self.tac_list.append(TACInstruction(TAC_Op.SRAM_STORE, src1=handle, src2=val_reg, imm=offset))
             return 0
 
+        if func_name == "sram_load_2d":
+            # sram_load_2d(handle, x, y) → SRAM_LOAD rd, src1=handle, imm=offset(calc)
+            # Since we can't easily emit a complex offset in one TAC, we emit
+            # a sequence: x_reg, y_reg, offset_reg = y * width + x
+            dest = self._new_reg()
+            handle = self._visit_expr(args[0])
+            x_reg = self._visit_expr(args[1])
+            y_reg = self._visit_expr(args[2])
+
+            # Width is assumed 16 for now as a constant
+            width_reg = self._new_reg()
+            self.symbols["__width_16"] = width_reg # Simplified: just use a constant register
+
+            # Linear offset calculation: y * 16 + x
+            prod_reg = self._new_reg()
+            self.tac_list.append(TACInstruction(TAC_Op.VMUL, dest=prod_reg, src1=y_reg, src2=width_reg))
+            offset_reg = self._new_reg()
+            self.tac_list.append(TACInstruction(TAC_Op.VADD, dest=offset_reg, src1=prod_reg, src2=x_reg))
+
+            # Now perform the load using the calculated offset register
+            # Note: our TACInstruction.imm is Optional[Any], but SRAM_LOAD usually expects a constant.
+            # In a real compiler, we'd have a register-based offset load.
+            # For the simulator's sake, we'll just use the offset_reg as src2.
+            self.tac_list.append(TACInstruction(TAC_Op.SRAM_LOAD, dest=dest, src1=handle, src2=offset_reg))
+            return dest
+
+        if func_name == "sram_store_2d":
+            # sram_store_2d(handle, x, y, val)
+            handle = self._visit_expr(args[0])
+            x_reg = self._visit_expr(args[1])
+            y_reg = self._visit_expr(args[2])
+            val_reg = self._visit_expr(args[3])
+
+            width_reg = self._new_reg()
+            prod_reg = self._new_reg()
+            self.tac_list.append(TACInstruction(TAC_Op.VMUL, dest=prod_reg, src1=y_reg, src2=width_reg))
+            offset_reg = self._new_reg()
+            self.tac_list.append(TACInstruction(TAC_Op.VADD, dest=offset_reg, src1=prod_reg, src2=x_reg))
+
+            self.tac_list.append(TACInstruction(TAC_Op.SRAM_STORE, src1=handle, src2=val_reg, imm=offset_reg))
+            return 0
+
         if func_name == "shift_right":
             # shift_right(handle, offset) → MESH_SHIFT rd, src1=handle, imm=offset
             dest = self._new_reg()

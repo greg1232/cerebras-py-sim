@@ -66,6 +66,16 @@ class KernelContext:
         self._perf.add_instruction_latency("MESH_READ")
         return 0.0
 
+    def sram_load_2d(self, handle: dict, x: int, y: int, width: int = 16) -> float:
+        """Load from 2D local SRAM. Tracks LDR latency."""
+        offset = y * width + x
+        return self.sram_load(handle, offset)
+
+    def sram_store_2d(self, handle: dict, x: int, y: int, val: float, width: int = 16):
+        """Store to 2D local SRAM. Tracks STR latency."""
+        offset = y * width + x
+        self.sram_store(handle, offset, val)
+
     def sync(self):
         """Global BSP Synchronization. Tracks SYNC latency."""
         self._perf.add_instruction_latency("SYNC")
