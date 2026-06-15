@@ -24,6 +24,10 @@ class BSPScheduler:
         self.sampler = SamplingManager(block_w, block_h, sampling_rate, self.mesh_width, self.mesh_height)
         self.perf = PerformanceCounter()
 
+        # Set by execute_kernel when global memory is involved
+        self._weight_server = None
+        self._base_ptr = None
+
     def run_superstep(self):
         """
         Executes one BSP superstep:
@@ -59,7 +63,9 @@ class BSPScheduler:
 
                     # Functional track: only execute if sampled
                     if is_sampled:
-                        core.execute(instr)
+                        core.execute(instr,
+                                     weight_server=self._weight_server,
+                                     base_ptr=self._base_ptr)
 
         # --- 2. Communicate Phase ---
         # The mesh handles routing of packets. In a a cycle-accurate sim,
@@ -79,14 +85,24 @@ class BSPScheduler:
         # This is a simplified version of the XY routing logic
         pass
 
-    def execute_kernel(self, program: List[int], steps: int = 1):
+    def execute_kernel(self, program: List[int], steps: int = 1,
+                       weight_server=None, base_ptr=None, constants=None):
         """
         ISA binary path: load a program into every core and run for `steps` supersteps.
-        Each superstep decodes and executes the full instruction list per PE.
+        weight_server + base_ptr enable LDR_GLOBAL/STR_GLOBAL.
+        constants is a {physical_reg: float} dict pre-loaded into every core before execution.
         """
+        self._weight_server = weight_server
+        self._base_ptr = base_ptr
+
         for x in range(self.mesh_width):
             for y in range(self.mesh_height):
-                self.cores[x][y].program = program
+                core = self.cores[x][y]
+                core.program = program
+                if constants:
+                    import numpy as np
+                    for preg, val in constants.items():
+                        core.regs[preg].f32[:] = np.float32(val)
 
         for _ in range(steps):
             self.run_superstep()

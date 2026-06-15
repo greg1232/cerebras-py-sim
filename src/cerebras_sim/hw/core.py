@@ -92,30 +92,53 @@ class Core:
         mask_bits = np.array([(self.mask >> i) & 1 for i in range(8)], dtype=bool)
         self.regs[rd].f32[mask_bits] = res[mask_bits]
 
+    def execute_vsub(self, rs1: int, rs2: int, rd: int):
+        """Vector Subtraction: rd = rs1 - rs2 (masked)"""
+        res = self.regs[rs1].f32 - self.regs[rs2].f32
+        mask_bits = np.array([(self.mask >> i) & 1 for i in range(8)], dtype=bool)
+        self.regs[rd].f32[mask_bits] = res[mask_bits]
+
     def execute_vrelu(self, rs1: int, rd: int):
         """Vector ReLU: rd = max(0, rs1) (masked)"""
         res = np.maximum(0.0, self.regs[rs1].f32)
         mask_bits = np.array([(self.mask >> i) & 1 for i in range(8)], dtype=bool)
         self.regs[rd].f32[mask_bits] = res[mask_bits]
 
-    def execute(self, instr):
+    def execute_ldr_global(self, rd: int, base_ptr, byte_offset: int, weight_server):
+        """LDR_GLOBAL: broadcast one float32 from weight server into all active lanes of rd."""
+        val = np.float32(weight_server.load(base_ptr, byte_offset))
+        mask_bits = np.array([(self.mask >> i) & 1 for i in range(8)], dtype=bool)
+        self.regs[rd].f32[mask_bits] = val
+
+    def execute_str_global(self, rd: int, base_ptr, byte_offset: int, weight_server):
+        """STR_GLOBAL: write lane-0 of rd as a float32 to weight server."""
+        val = float(self.regs[rd].f32[0])
+        weight_server.store(base_ptr, byte_offset, val)
+
+    def execute(self, instr, weight_server=None, base_ptr=None):
         """
         Dispatch an Instruction to the corresponding compute method.
         Returns: latency (int) of the operation.
+
+        weight_server + base_ptr are required for LDR_GLOBAL / STR_GLOBAL.
         """
         from ..utils.constants import LATENCIES
 
         if instr.opcode == "VADD":
             self.execute_vadd(instr.rs1, instr.rs2, instr.rd)
+        elif instr.opcode == "VSUB":
+            self.execute_vsub(instr.rs1, instr.rs2, instr.rd)
         elif instr.opcode == "VMUL":
             self.execute_vmul(instr.rs1, instr.rs2, instr.rd)
         elif instr.opcode == "VFMADD":
             self.execute_vfmadd(instr.rs1, instr.rs2, instr.rd)
         elif instr.opcode == "VRELU":
             self.execute_vrelu(instr.rs1, instr.rd)
-        elif instr.opcode == "VSUB":
-            pass
-        else:
-            pass
+        elif instr.opcode == "LDR_GLOBAL":
+            if weight_server is not None and base_ptr is not None:
+                self.execute_ldr_global(instr.rd, base_ptr, instr.imm, weight_server)
+        elif instr.opcode == "STR_GLOBAL":
+            if weight_server is not None and base_ptr is not None:
+                self.execute_str_global(instr.rd, base_ptr, instr.imm, weight_server)
 
         return LATENCIES.get(instr.opcode, 1)
