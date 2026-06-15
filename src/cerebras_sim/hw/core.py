@@ -115,15 +115,16 @@ class Core:
         val = float(self.regs[rd].f32[0])
         weight_server.store(base_ptr, byte_offset, val)
 
-    def execute(self, instr, weight_server=None, base_ptr=None):
+    def execute(self, instr, weight_server=None, base_ptr=None) -> Tuple[bool, int]:
         """
         Dispatch an Instruction to the corresponding compute method.
-        Returns: latency (int) of the operation.
-
-        weight_server + base_ptr are required for LDR_GLOBAL / STR_GLOBAL.
+        Returns: (stalled, latency)
+        - stalled: True if the PE is waiting for a resource (e.g. mesh packet) and cannot advance PC.
+        - latency: cycles this operation takes.
         """
         from ..utils.constants import LATENCIES
 
+        stalled = False
         if instr.opcode == "VADD":
             self.execute_vadd(instr.rs1, instr.rs2, instr.rd)
         elif instr.opcode == "VSUB":
@@ -140,5 +141,16 @@ class Core:
         elif instr.opcode == "STR_GLOBAL":
             if weight_server is not None and base_ptr is not None:
                 self.execute_str_global(instr.rd, base_ptr, instr.imm, weight_server)
+        elif instr.opcode == "MESH":
+            # MESH instructions are handled by the scheduler because they
+            # interact with the MeshNetwork, not just the core's internal state.
+            # The scheduler will check for stalls based on the mesh buffers.
+            pass
+        elif instr.opcode == "CONTROL":
+            if instr.func == 0x03: # SYNC
+                #- Handled by scheduler as a barrier
+                pass
+            elif instr.func == 0x04: # HALT
+                self.halted = True
 
-        return LATENCIES.get(instr.opcode, 1)
+        return stalled, LATENCIES.get(instr.opcode, 1)

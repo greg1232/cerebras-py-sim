@@ -150,10 +150,9 @@ def decode_instruction(binary: int) -> Instruction:
         return Instruction(opcode=opcode, rd=rd, rs1=rs1, rs2=rs2, func=func)
 
     if group == "MESH":
-        opcode = MESH_FUNCS.get(func)
-        if opcode is None:
+        if func not in MESH_FUNCS:
             raise DecodingError(f"Unknown MESH func: 0x{func:03X}")
-        return Instruction(opcode=opcode, rd=rd, rs1=rs1, func=func)
+        return Instruction(opcode="MESH", rd=rd, rs1=rs1, func=func)
 
     if group == "MEMORY":
         imm = (binary >> 5) & 0xFFFF

@@ -1,53 +1,83 @@
-# cerebras-py-sim
+# Cerebras CS3 Simulator
 
-A simulator for the Cerebras CS3 Wafer-Scale Engine. The goal is to model the CS3's massive 2D mesh of processing elements, per-core SRAM, SIMD execution units, and bidirectional mesh interconnect — enabling ISA-level program development and performance analysis without access to real hardware.
+A high-fidelity architectural simulator for the Cerebras CS3 Wafer-Scale Engine (WSE). This project models the hardware architecture, interconnects, and execution environment to enable performance analysis and software development for massively parallel 2D mesh architectures.
 
-## Hardware Target
+## 🚀 Project Overview
 
-| Parameter | Value |
-|-----------|-------|
-| Core array | 800 x 900 (720,000 cores) |
-| Per-core SRAM | 48 KB |
-| SIMD width | 8 lanes |
-| Clock | 750 / 850 MHz base, 1.2 / 1.4 GHz boost |
-| Mesh interconnect | 16-bit bidirectional per cycle (N/S/E/W) |
-| Off-chip IO | 12 x 100 Gbps links |
-| External memory | Weight server via IO fabric |
+The Cerebras-Sim is designed to model the CS3 WSE, featuring a massive array of 720,000 processing elements (PEs). It provides a full-stack simulation environment, from a high-level Python DSL down to a custom 32-bit ISA binary.
 
-## Project Status
+### Key Goals
+- **Performance Analysis**: Estimate total runtime and identify bottlenecks using a hybrid performance/functional model.
+- **Software Development**: Verify kernel correctness via a CUDA-like programming model before deploying to hardware.
+- **Architectural Exploration**: Model the impact of mesh bisection bandwidth, latency, and SRAM constraints.
 
-Currently in the documentation and ISA specification phase. The full instruction set, machine state, and mesh interconnect structs are defined. Simulator implementation is next.
+---
 
-## Directory Structure
+## 🏗️ Architecture
 
+### Hardware Model
+- **Processing Element (PE)**: Each core implements an 8-wide SIMD unit, vector registers, and a private **48KB local SRAM**.
+- **Interconnect**: A 2D Mesh (800x900) where communication occurs via `SEND`/`RECV` primitives and global address space abstractions.
+- **Memory Hierarchy**:
+    - **Local SRAM**: Private high-speed memory per PE (analogous to CUDA Shared Memory).
+    - **Weight Server**: External DRAM accessed via a global address space for large-scale model weights and data.
+- **Host-Device Interface**: A driver model implementing a command queue (`CS3Queue`) and memory movement (`cs3_memcpy`).
+
+### Execution Model
+The simulator employs a **Bulk Synchronous Parallel (BSP)** model, dividing execution into discrete "supersteps":
+1. **Compute**: PEs perform local SIMD operations.
+2. **Communicate**: PEs exchange data across the mesh or with the Weight Server.
+3. **Synchronize**: A global barrier (`SYNC`) aligns the execution state.
+
+To balance accuracy and speed, the simulator uses a **hybrid execution track**:
+- **Performance Track (Global)**: All PEs are tracked for cycle counts and timing.
+- **Functional Track (Sampled)**: A stochastic sampling strategy is used where only a subset of blocks is fully simulated functionally to verify correctness.
+
+---
+
+## 💻 Software Stack
+
+The project implements a complete toolchain:
+**`Python DSL` $\rightarrow$ `Tungsten-IR` $\rightarrow$ `ISA Binary` $\rightarrow$ `Simulator`**
+
+1. **Frontend**: A CUDA-like DSL embedded in Python using `@cs3_kernel` decorators.
+2. **Intermediate Representation (Tungsten-IR)**: A dataflow-centric IR mapping compute nodes and synchronization points.
+3. **Compiler Backend**:
+    - **Mapping & Scheduling**: Assigns IR nodes to the physical 2D mesh and manages the SRAM budget.
+    - **Assembler**: Emits the final 32-bit binary stream.
+4. **Simulator Engine**: A Python-based engine that decodes the ISA and drives the hardware model.
+
+---
+
+## ⏱️ Performance Modeling
+
+Instead of exhaustive packet-level simulation, the system uses a **latency-and-bandwidth-aware abstract model**:
+
+- **Latency**: Calculated based on physical Manhattan distance:
+  $$\text{Latency}_{\text{op}} = \text{Base Latency} + (\text{Manhattan Distance} \times \text{Hop Latency})$$
+- **Bandwidth & Congestion**: The simulator enforces a **Bisection Bandwidth Constraint**. If total bytes transferred per superstep exceed network capacity, a congestion multiplier is applied to "stretch" the superstep duration.
+
+---
+
+## 🛠️ Current Status
+
+| Component | Status | Details |
+| :--- | :--- | :--- |
+| **ISA Decoder** | ✅ Complete | Full implementation of Compute, Mesh, Control, System, DSD, and Global memory opcodes. |
+| **Hardware Model**| ✅ Functional | Core logic, SRAM, 2D Mesh, and Host-Device IO are implemented. |
+| **Compiler** | ✅ Functional | AST parsing, IR generation, register allocation, and assembly are operational. |
+| **Simulation Engine**| ✅ Functional | Hybrid Performance/Functional tracks and BSP scheduling are implemented. |
+| **Advanced Mapping**| 🚧 In Progress | Optimizing spatial mapping for complex kernels. |
+| **Weight Server** | 🚧 In Progress | Integration with external weight servers for real-world model weights. |
+
+## 🧪 Testing & Validation
+
+The project uses a **Dual-Execution** strategy to verify the compiler:
+1. **Python Path**: Executes the kernel as a Python function via `KernelContext` (Golden Reference).
+2. **Binary Path**: Compiles the kernel $\rightarrow$ executes the resulting binary on the `BSPScheduler`.
+3. **Comparison**: Bit-exact comparison of final memory states.
+
+To run integration tests:
+```bash
+python3 -m unittest discover tests/integration
 ```
-docs/
-  overview.md            — Project goals and hardware specs
-  isa.md                 — ISA overview and execution model
-  isa_instructions.md    — Full instruction listing by category
-  tungsten.md            — Tungsten dataflow domain translation language
-  isa/
-    README.md            — Indexed instruction reference
-    encoding.md          — 32-bit binary encoding specification
-    machine_state.c      — Authoritative C structs for per-core state
-    mesh_network_state.c — Authoritative C structs for mesh fabric state
-    <instruction>.md     — One doc per instruction (54 total)
-```
-
-## ISA Summary
-
-The CS3 ISA is organized into six categories:
-
-- **Compute** — SIMD-8 arithmetic, FMA, activations (ReLU, GELU, Sigmoid, Tanh), transcendentals, quantization casts
-- **Mesh Send/Recv** — Directional `SEND_*` / `RECV_*` / `WAIT_*` for the 16-bit bidirectional fabric
-- **Memory** — Direct SRAM load/store, auto-increment, DSD (Data Structure Descriptor) tensor addressing
-- **Control** — SIMD lane masking, conditional/unconditional branches, barrier sync, halt
-- **System** — Clock control (750–1400 MHz), cycle counter, core ID, telemetry
-
-See [`docs/isa/README.md`](docs/isa/README.md) for the full indexed instruction reference.
-
-## Programming Model
-
-Computation follows the **Tungsten dataflow model**: each core executes a program that stalls on `WAIT_*` until data arrives from a mesh neighbor, processes it via SIMD compute, then forwards results to downstream cores via `SEND_*`. Bulk stencil patterns (finite difference, convolution) map directly onto the 2D core grid.
-
-See [`docs/tungsten.md`](docs/tungsten.md) for an overview of the Tungsten domain translation system.
