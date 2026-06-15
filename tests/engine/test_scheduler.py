@@ -18,7 +18,7 @@ class TestBSPScheduler(unittest.TestCase):
 
         try:
             # Specify small grid dimensions (2x2) to keep tests fast
-            scheduler = BSPScheduler(block_width=2, block_height=2, sampling_rate=1.0, mesh_width=2, mesh_height=2)
+            scheduler = BSPScheduler(block_w=2, block_h=2, sampling_rate=1.0, mesh_width=2, mesh_height=2)
 
             # VADD binary: 0x04611000 (Latency = 1)
             program = [0x04611000]
@@ -38,7 +38,7 @@ class TestBSPScheduler(unittest.TestCase):
 
         try:
             # Sampling rate 0.0 means only a minimal set (1 block) is simulated
-            scheduler = BSPScheduler(block_width=2, block_height=2, sampling_rate=0.0, mesh_width=2, mesh_height=2)
+            scheduler = BSPScheduler(block_w=2, block_h=2, sampling_rate=0.0, mesh_width=2, mesh_height=2)
 
             # VADD rd=3, rs1=1, rs2=2
             binary = 0x04611000

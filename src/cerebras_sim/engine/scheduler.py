@@ -79,6 +79,20 @@ class BSPScheduler:
         # This is a simplified version of the XY routing logic
         pass
 
+    def execute_kernel(self, program: List[int], steps: int = 1):
+        """
+        ISA binary path: load a program into every core and run for `steps` supersteps.
+        Each superstep decodes and executes the full instruction list per PE.
+        """
+        for x in range(self.mesh_width):
+            for y in range(self.mesh_height):
+                self.cores[x][y].program = program
+
+        for _ in range(steps):
+            self.run_superstep()
+
+        return self.perf.get_estimated_runtime(750)
+
     def execute_kernel_fn(self, kernel_fn, weight_server, steps: int = 1):
         """
         Executes a high-level Python kernel function across the grid.
