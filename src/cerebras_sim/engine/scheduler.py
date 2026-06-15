@@ -11,17 +11,17 @@ class BSPScheduler:
     """
     Orchestrates the Bulk Synchronous Parallel execution loop for the CS3 wafer.
     """
-    def __init__(self, block_width: int, block_height: int, sampling_rate: float, mesh_width: int = MESH_WIDTH, mesh_height: int = MESH_HEIGHT):
-        self.block_width = block_width
-        self.block_height = block_height
+    def __init__(self, block_w: int, block_h: int, sampling_rate: float, mesh_width: int = MESH_WIDTH, mesh_height: int = MESH_HEIGHT):
+        self.block_w = block_w
+        self.block_h = block_h
         self.mesh_width = mesh_width
         self.mesh_height = mesh_height
 
         # Initialize Grid of Cores
         self.cores = [[Core(x, y) for y in range(self.mesh_height)] for x in range(self.mesh_width)]
-        self.mesh = MeshNetwork((block_width, block_height))
+        self.mesh = MeshNetwork((block_w, block_h))
 
-        self.sampler = SamplingManager(block_width, block_height, sampling_rate)
+        self.sampler = SamplingManager(block_w, block_h, sampling_rate, self.mesh_width, self.mesh_height)
         self.perf = PerformanceCounter()
 
     def run_superstep(self):
@@ -79,16 +79,23 @@ class BSPScheduler:
         # This is a simplified version of the XY routing logic
         pass
 
-    def execute_kernel(self, program: List[int], steps: int):
+    def execute_kernel_fn(self, kernel_fn, weight_server, steps: int = 1):
         """
-        Loads a program into all cores and runs for a specified number of supersteps.
+        Executes a high-level Python kernel function across the grid.
+        Schedules the function on every PE, using a KernelContext for the DSL API.
         """
-        # Load program into every core
-        for x in range(self.mesh_width):
-            for y in range(self.mesh_height):
-                self.cores[x][y].program = program
+        from .context import KernelContext
 
-        for i in range(steps):
-            self.run_superstep()
+        for _ in range(steps):
+            for x in range(self.mesh_width):
+                for y in range(self.mesh_height):
+                    # We create a context for every PE.
+                    # The context itself should decide whether to perform side-effects
+                    # (SRAM/Global writes) based on the sampler, but it always
+                    # records performance latency.
+                    ctx = KernelContext(x, y, weight_server, self.perf, self.sampler)
+                    kernel_fn(ctx)
+
+            self.perf.finalize_superstep()
 
         return self.perf.get_estimated_runtime(750)

@@ -7,13 +7,13 @@ class SamplingManager:
     Implements the Block-Level Sampling strategy.
     Determines which thread blocks are fully simulated vs. abstractly timed.
     """
-    def __init__(self, block_width: int, block_height: int, sampling_rate: float = 0.01):
+    def __init__(self, block_width: int, block_height: int, sampling_rate: float = 0.01, mesh_width: int = MESH_WIDTH, mesh_height: int = MESH_HEIGHT):
         self.block_width = block_width
         self.block_height = block_height
         self.sampling_rate = sampling_rate
 
-        self.num_blocks_x = MESH_WIDTH // block_width
-        self.num_blocks_y = MESH_HEIGHT // block_height
+        self.num_blocks_x = mesh_width // block_width
+        self.num_blocks_y = mesh_height // block_height
 
         # The set of blocks chosen for full functional simulation
         self.sampled_blocks: Set[Tuple[int, int]] = set()
