@@ -39,13 +39,18 @@ Wafer (Grid)
 +---------------------------------------+
 ```
 
-- **Hierarchical Scheduling:** Blocks are the primary unit of scheduling. The scheduler manages blocks independently, and their execution order is not guaranteed.
+- **Hierarchical Scheduling:** Blocks are the primary unit of scheduling. The scheduler manages blocks independently, and their execution order is not guaranteed. To maintain simulation performance, the scheduler selects a subset of blocks for full functional simulation; all other blocks are abstractly simulated for timing.
 - **Isolation Boundary:** A block serves as a strict isolation boundary. PEs in Block A cannot communicate with PEs in Block B via the mesh.
-- **Intra-Block Communication:** PEs within the same tile communicate via a high-speed bidirectional mesh (NESW links). The latency is typically 1 cycle per hop. These links are only active for communication within the boundaries of a single block; mesh packets attempting to cross a block boundary are dropped or trigger an error.
+- **Communication via Global Memory:** PEs communicate with each other and with the Weight Server through `LDR_GLOBAL` and `STR_GLOBAL` instructions. Logically, this is a memory operation—a PE issues a load or store to a global address, and the hardware handles delivery. Internally, the hardware uses the NESW mesh links for routing, but this is transparent to the programmer.
 - **Synchronization:** Tiles are the unit of synchronization. The `SYNC` instruction acts as a barrier, ensuring all PEs within a specific tile have reached the same point in execution before proceeding.
 
-## Block-Local Communication
-The mesh network on the CS3 wafer is effectively partitioned into **block-local islands**. While the physical wiring exists across the entire wafer, the logical execution model restricts mesh traffic to the interior of the currently executing block. This ensures that kernels can be scaled and scheduled across the wafer without worrying about inter-block interference or race conditions on the mesh.
+## Block Communication via Global Memory
+Communication in the CS3 programming model is logically a memory operation. Programmers do not issue explicit mesh `SEND` or `RECV` instructions; instead, they use `LDR_GLOBAL` and `STR_GLOBAL` to read and write a global address space. The hardware implements these operations by routing through the NESW mesh, but this routing is internal to the hardware.
+
+This abstraction has several important consequences:
+- **Unified programming model:** Both local neighbor communication and remote Weight Server access use the same `load_global`/`store_global` interface.
+- **No explicit routing:** Programmers do not manage mesh directions. The hardware resolves the address to a physical location and routes accordingly.
+- **Block boundaries are transparent:** A load from a neighboring PE's SRAM that happens to be in a different block is handled by the hardware; the programmer does not need to check block boundaries or use different primitives.
 
 ---
 
@@ -71,7 +76,7 @@ There is no global device memory located on the wafer itself. Large tensors and 
 The CS3 simulator follows a **Bulk Synchronous Parallel (BSP)** model, mapping directly to the Tungsten stencil model. Execution proceeds in discrete "supersteps":
 
 1. **Compute:** All PEs perform local computations using registers and local SRAM.
-2. **Communicate:** PEs exchange data via mesh sends and receives.
+2. **Communicate:** PEs exchange data via global load/store operations. The hardware transparently routes these through the mesh.
 3. **Synchronize:** PEs hit a `SYNC` barrier to align execution state.
 
 ### Kernel Lifecycle
@@ -80,6 +85,6 @@ The typical lifecycle of a kernel execution is as follows:
 1. **Allocation:** The Host allocates memory on the Weight Server.
 2. **Data Transfer:** The Host issues a `memcpy` to transfer initial data to the device via the IO links.
 3. **Launch:** The Host enqueues the kernel launch, specifying grid (800x900) and tile (e.g., 16x16) dimensions.
-4. **Execution:** The scheduler manages blocks independently. All PEs begin executing the kernel program in parallel, but block-level scheduling determines when specific tiles are active.
+4. **Execution:** The scheduler manages blocks independently. A subset of blocks is sampled for full functional simulation (where every PE in the block is fully simulated), while others are abstractly simulated. All PEs begin executing the kernel program in parallel, but block-level scheduling determines when specific tiles are active.
 5. **Iteration:** PEs perform compute $\rightarrow$ communicate $\rightarrow$ `SYNC` cycles.
 6. **Retrieval:** Upon completion, the Host issues a `memcpy` to pull results back from the device.

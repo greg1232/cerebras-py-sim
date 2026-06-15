@@ -17,10 +17,10 @@ The CS3 ISA is designed for high-throughput tensor operations and dataflow execu
 - **Activation Functions:** Hardware-accelerated ReLU, GeLU, and Sigmoid approximations.
 - **Quantization/Casting:** Instructions for moving between FP16, BF16, and INT8.
 
-### 3.2 Data Movement (Mesh)
-- **Send [Direction, Register]:** Pushes data to the adjacent core in the specified direction (N, S, E, W).
-- **Recv [Direction, Register]:** Blocks or triggers based on data arrival from a specific direction.
-- **Broadcast:** Special primitives for row/column distribution.
+### 3.2 Global Memory Operations
+- **LDR_GLOBAL [Address, Register]:** Loads data from the global address space (Weight Server or remote PE SRAM) into a register. This operation internally triggers mesh movement to route the request to the target address.
+- **STR_GLOBAL [Address, Register]:** Stores data from a register into the global address space. This operation internally utilizes the mesh to transport data to the destination.
+- **Internal Mesh Primitives:** The hardware utilizes internal primitives (`SEND_*`, `RECV_*`, `WAIT_*`) to implement these global operations. These are not exposed as user-accessible instructions.
 
 ### 3.3 Memory Operations
 - **Load/Store:** Accesses the 48KB local SRAM.
@@ -28,13 +28,13 @@ The CS3 ISA is designed for high-throughput tensor operations and dataflow execu
 
 ### 3.4 Control Flow
 - **Branching:** Conditional execution based on SIMD mask registers.
-- **Sync:** Block-Local Barrier. Synchronizes PEs only within the same block, not across the entire wafer.
+- **Sync:** Block-Local Barrier. Synchronizes all Processing Elements (PEs) within a single block. There is no global SYNC instruction in the ISA; global synchronization is managed by the host via the `CS3Queue`.
 
 ## 4. Hardware Constraints
-The mesh interconnect hardware enforces hierarchical block isolation. All `SEND_*` and `RECV_*` instructions are gated by the current Block ID. If a `SEND` operation attempts to cross a block boundary, it is treated as a NOP or triggers a hardware exception, depending on the system configuration.
+The mesh interconnect hardware is abstracted behind the global memory model. While the physical mesh exists, the programmer interacts with it via `LDR_GLOBAL` and `STR_GLOBAL`. Any underlying `SEND_*` or `RECV_*` operations are handled by the hardware to facilitate these global memory accesses.
 
 ## 5. SIMD Execution Model
 Instructions are executed in a Single Instruction, Multiple Data (SIMD) fashion. A mask register determines which of the 8 lanes are active for a given operation.
 
 ## 6. Dataflow Triggering
-The ISA supports a "trigger" mechanism where instructions are not merely sequential but can be gated by the arrival of packets on the 16-bit bidirectional mesh.
+The ISA supports a "trigger" mechanism where instructions can be gated by the arrival of data via the global memory fabric, which internally utilizes the bidirectional mesh.

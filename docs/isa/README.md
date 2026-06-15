@@ -33,27 +33,28 @@ Each entry links to its detailed specification.
 - [vcast_f16_i8](vcast_f16_i8.md) — Casts floating point to INT8 with saturation.
 - [vclip](vclip.md) — Clamps each lane to a `[min, max]` range.
 
-## Mesh Send
+## Global Memory
 
-- [send_n](send_n.md) — Sends a register's value to the North neighbor core.
-- [send_s](send_s.md) — Sends a register's value to the South neighbor core.
-- [send_e](send_e.md) — Sends a register's value to the East neighbor core.
-- [send_w](send_w.md) — Sends a register's value to the West neighbor core.
+- [ldr_global](ldr_global.md) — Loads a value from the global address space (Weight Server or remote PE SRAM) into a register.
+- [str_global](str_global.md) — Stores a register's value to the global address space (Weight Server or remote PE SRAM).
 
-## Mesh Receive
+## Internal Hardware Primitives (Mesh — Not User-Accessible)
 
-- [recv_n](recv_n.md) — Receives a packet from the North neighbor into a register.
-- [recv_s](recv_s.md) — Receives a packet from the South neighbor into a register.
-- [recv_e](recv_e.md) — Receives a packet from the East neighbor into a register.
-- [recv_w](recv_w.md) — Receives a packet from the West neighbor into a register.
+> The following instructions are used internally by the hardware to implement `LDR_GLOBAL` and `STR_GLOBAL`. They are not available to kernel programmers and should not be emitted by the compiler.
 
-## Mesh Synchronization
-
-- [wait_n](wait_n.md) — Stalls until a packet arrives from the North neighbor.
-- [wait_s](wait_s.md) — Stalls until a packet arrives from the South neighbor.
-- [wait_e](wait_e.md) — Stalls until a packet arrives from the East neighbor.
-- [wait_w](wait_w.md) — Stalls until a packet arrives from the West neighbor.
-- [poll_mesh](poll_mesh.md) — Non-blocking check for any pending packets in local mesh buffers.
+- [send_n](send_n.md) — Internal: sends a register's value to the North neighbor core.
+- [send_s](send_s.md) — Internal: sends a register's value to the South neighbor core.
+- [send_e](send_e.md) — Internal: sends a register's value to the East neighbor core.
+- [send_w](send_w.md) — Internal: sends a register's value to the West neighbor core.
+- [recv_n](recv_n.md) — Internal: receives a packet from the North neighbor into a register.
+- [recv_s](recv_s.md) — Internal: receives a packet from the South neighbor into a register.
+- [recv_e](recv_e.md) — Internal: receives a packet from the East neighbor into a register.
+- [recv_w](recv_w.md) — Internal: receives a packet from the West neighbor into a register.
+- [wait_n](wait_n.md) — Internal: stalls until a packet arrives from the North neighbor.
+- [wait_s](wait_s.md) — Internal: stalls until a packet arrives from the South neighbor.
+- [wait_e](wait_e.md) — Internal: stalls until a packet arrives from the East neighbor.
+- [wait_w](wait_w.md) — Internal: stalls until a packet arrives from the West neighbor.
+- [poll_mesh](poll_mesh.md) — Internal: non-blocking check for any pending packets in local mesh buffers.
 
 ## Memory (SRAM)
 

@@ -1,7 +1,9 @@
-# SEND_S (Send South)
+# SEND_S (Send South) — Internal Hardware Primitive
+
+> **Not user-accessible.** This instruction is an internal hardware primitive used by the global memory dispatch unit to implement `LDR_GLOBAL` and `STR_GLOBAL`. Kernel programmers should use `load_global` and `store_global` instead.
 
 ## Description
-Sends the content of a register to the South neighbor core.
+Sends the content of a register to the South neighbor core via the NESW mesh. This primitive is invoked automatically by the hardware when a global memory operation requires southward routing.
 
 ## Behavior
 ```c

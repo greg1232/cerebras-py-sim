@@ -17,7 +17,7 @@ Each PE is responsible for computing the heat evolution of its assigned $16 \tim
 The implementation follows a synchronous dataflow pattern across the PE array:
 
 1. **Local State**: Each PE maintains the current temperature values $u(x,y)$ for its tile in local SRAM.
-2. **Halo Exchange**: To compute the Laplacian for boundary pixels, PEs must exchange their edge rows and columns with neighbors. We use `SEND_*` and `RECV_*` primitives to swap boundary values with North, South, East, and West neighbors.
+2. **Halo Exchange**: To compute the Laplacian for boundary pixels, PEs exchange their edge rows and columns with neighbors. This is now performed using `load_global` and `store_global` operations, which abstract the underlying mesh movement.
 3. **Stencil Compute**: Once the halo is received, the PE computes the next time step $u_{t+1}$ using the 5-point Laplacian stencil:
    $$u_{t+1} = u_{t} + \alpha \Delta t \left( \frac{u_{i+1,j} + u_{i-1,j} + u_{i,j+1} + u_{i,j-1} - 4u_{i,j}}{\Delta x^2} \right)$$
 4. **Sync**: A call to `sync()` marks the completion of the superstep, ensuring all PEs have finished their computation and communication before proceeding to the next time step.
@@ -37,19 +37,24 @@ kernel heat_equation {
     float halo_n[TILE_W], halo_s[TILE_W], halo_e[TILE_H], halo_w[TILE_H];
 
     loop t in 0..T {
-        // 1. Halo Exchange: Send boundary values to neighbors
-        SEND_NORTH(u[0..TILE_W-1][0]);     // Send top row
-        SEND_SOUTH(u[0..TILE_W-1][TILE_H-1]); // Send bottom row
-        SEND_EAST(u[TILE_W-1][0..TILE_H-1]);  // Send right col
-        SEND_WEST(u[0][0..TILE_H-1]);      // Send left col
+        // 1. Halo Exchange: Share boundary values with neighbors via global memory
+        // North boundary
+        store_global(output, (py-1)*800*64 + px*64, u[0..TILE_W-1][0]);
+        halo_n = load_global(input, (py-1)*800*64 + px*64);
+        
+        // South boundary
+        store_global(output, (py+1)*800*64 + px*64, u[0..TILE_W-1][TILE_H-1]);
+        halo_s = load_global(input, (py+1)*800*64 + px*64);
+        
+        // East boundary
+        store_global(output, py*800*64 + (px+1)*64, u[TILE_W-1][0..TILE_H-1]);
+        halo_e = load_global(input, py*800*64 + (px+1)*64);
+        
+        // West boundary
+        store_global(output, py*800*64 + (px-1)*64, u[0][0..TILE_H-1]);
+        halo_w = load_global(input, py*800*64 + (px-1)*64);
 
-        // 2. Receive boundaries from neighbors
-        RECV_NORTH(halo_n);
-        RECV_SOUTH(halo_s);
-        RECV_EAST(halo_e);
-        RECV_WEST(halo_w);
-
-        // 3. Compute 5-point stencil
+        // 2. Compute 5-point stencil
         for x in 0..TILE_W-1 {
             for y in 0..TILE_H-1 {
                 float center = u[x][y];
@@ -65,7 +70,7 @@ kernel heat_equation {
         // Update state for next timestep
         u = u_next;
         
-        // 4. Synchronize the PE array
+        // 3. Synchronize the PE array
         sync();
     }
 }

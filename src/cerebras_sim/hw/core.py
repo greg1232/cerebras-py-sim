@@ -97,3 +97,25 @@ class Core:
         res = np.maximum(0.0, self.regs[rs1].f32)
         mask_bits = np.array([(self.mask >> i) & 1 for i in range(8)], dtype=bool)
         self.regs[rd].f32[mask_bits] = res[mask_bits]
+
+    def execute(self, instr):
+        """
+        Dispatch an Instruction to the corresponding compute method.
+        Returns: latency (int) of the operation.
+        """
+        from ..utils.constants import LATENCIES
+
+        if instr.opcode == "VADD":
+            self.execute_vadd(instr.rs1, instr.rs2, instr.rd)
+        elif instr.opcode == "VMUL":
+            self.execute_vmul(instr.rs1, instr.rs2, instr.rd)
+        elif instr.opcode == "VFMADD":
+            self.execute_vfmadd(instr.rs1, instr.rs2, instr.rd)
+        elif instr.opcode == "VRELU":
+            self.execute_vrelu(instr.rs1, instr.rd)
+        elif instr.opcode == "VSUB":
+            pass
+        else:
+            pass
+
+        return LATENCIES.get(instr.opcode, 1)

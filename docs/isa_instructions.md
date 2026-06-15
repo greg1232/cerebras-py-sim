@@ -30,25 +30,32 @@ All compute instructions operate on the 8-wide vector registers.
 - `VCAST_F16_I8`: Cast FP16 to INT8 (with saturation)
 - `VCLIP`: Vector Clip/Clamp to range
 
-## 2. Mesh & Interconnect Instructions
-These instructions handle the 16-bit bidirectional mesh communication.
+## 2. Global Memory Instructions
+These instructions provide access to the global address space, which includes the external Weight Server (DRAM) and remote PE SRAM. They are the primary mechanism for inter-PE communication and host-device data exchange. The hardware internally routes these operations through the NESW mesh.
 
-### Data Movement
-- `SEND_N`: Send register to North neighbor
-- `SEND_S`: Send register to South neighbor
-- `SEND_E`: Send register to East neighbor
-- `SEND_W`: Send register to West neighbor
-- `RECV_N`: Receive from North neighbor
-- `RECV_S`: Receive from South neighbor
-- `RECV_E`: Receive from East neighbor
-- `RECV_W`: Receive from West neighbor
+### Global Load/Store
+- `LDR_GLOBAL`: Load from global address space into a register
+- `STR_GLOBAL`: Store from a register to the global address space
 
-### Dataflow Triggering
-- `WAIT_N`: Stall execution until data arrives from North
-- `WAIT_S`: Stall execution until data arrives from South
-- `WAIT_E`: Stall execution until data arrives from East
-- `WAIT_W`: Stall execution until data arrives from West
-- `POLL_MESH`: Non-blocking check for any pending mesh data
+## 2a. Internal Hardware Primitives (Mesh — Not User-Accessible)
+> These instructions are used internally by the hardware to implement `LDR_GLOBAL` and `STR_GLOBAL`. They handle mesh routing of global memory operations and are not exposed to kernel programmers.
+
+### Internal Data Movement
+- `SEND_N`: (Internal) Send register to North neighbor
+- `SEND_S`: (Internal) Send register to South neighbor
+- `SEND_E`: (Internal) Send register to East neighbor
+- `SEND_W`: (Internal) Send register to West neighbor
+- `RECV_N`: (Internal) Receive from North neighbor
+- `RECV_S`: (Internal) Receive from South neighbor
+- `RECV_E`: (Internal) Receive from East neighbor
+- `RECV_W`: (Internal) Receive from West neighbor
+
+### Internal Dataflow Synchronization
+- `WAIT_N`: (Internal) Stall until data arrives from North
+- `WAIT_S`: (Internal) Stall until data arrives from South
+- `WAIT_E`: (Internal) Stall until data arrives from East
+- `WAIT_W`: (Internal) Stall until data arrives from West
+- `POLL_MESH`: (Internal) Non-blocking check for any pending mesh data
 
 ## 3. Memory Instructions (48KB SRAM)
 Direct access to the core's local scratchpad memory.
