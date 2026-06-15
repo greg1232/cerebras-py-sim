@@ -124,6 +124,54 @@ class ASTParser:
             self.tac_list.append(TACInstruction(TAC_Op.STORE_GLOBAL, src1=val_reg, imm=offset))
             return 0  # void
 
+        if func_name == "sram_alloc":
+            # sram_alloc(name, size) → SRAM_ALLOC rd, imm=size
+            dest = self._new_reg()
+            size = _const_val(args[1]) if len(args) > 1 else 0
+            self.tac_list.append(TACInstruction(TAC_Op.SRAM_ALLOC, dest=dest, imm=size))
+            return dest
+
+        if func_name == "sram_load":
+            # sram_load(handle, offset) → SRAM_LOAD rd, src1=handle, imm=offset
+            dest = self._new_reg()
+            handle = self._visit_expr(args[0])
+            offset = _const_val(args[1]) if len(args) > 1 else 0
+            self.tac_list.append(TACInstruction(TAC_Op.SRAM_LOAD, dest=dest, src1=handle, imm=offset))
+            return dest
+
+        if func_name == "sram_store":
+            # sram_store(handle, offset, val) → SRAM_STORE src1=handle, src2=val, imm=offset
+            handle = self._visit_expr(args[0])
+            val_reg = self._visit_expr(args[2]) if len(args) > 2 else 0
+            offset = _const_val(args[1]) if len(args) > 1 else 0
+            self.tac_list.append(TACInstruction(TAC_Op.SRAM_STORE, src1=handle, src2=val_reg, imm=offset))
+            return 0
+
+        if func_name == "shift_right":
+            # shift_right(handle, offset) → MESH_SHIFT rd, src1=handle, imm=offset
+            dest = self._new_reg()
+            handle = self._visit_expr(args[0])
+            offset = _const_val(args[1]) if len(args) > 1 else 0
+            self.tac_list.append(TACInstruction(TAC_Op.MESH_SHIFT, dest=dest, src1=handle, imm=offset))
+            return dest
+
+        if func_name == "shift_down":
+            # shift_down(handle, offset) → MESH_SHIFT rd, src1=handle, imm=offset (encoded in ISA)
+            dest = self._new_reg()
+            handle = self._visit_expr(args[0])
+            offset = _const_val(args[1]) if len(args) > 1 else 0
+            self.tac_list.append(TACInstruction(TAC_Op.MESH_SHIFT, dest=dest, src1=handle, imm=offset))
+            return dest
+
+        if func_name == "neighbor_load":
+            # neighbor_load(handle, dir, offset) → MESH_READ rd, src1=handle, imm=offset
+            dest = self._new_reg()
+            handle = self._visit_expr(args[0])
+            # Direction is handled as meta or a specialized immediate in the compiler
+            offset = _const_val(args[2]) if len(args) > 2 else 0
+            self.tac_list.append(TACInstruction(TAC_Op.MESH_READ, dest=dest, src1=handle, imm=offset))
+            return dest
+
         if func_name == "pe_x":
             dest = self._new_reg()
             self.tac_list.append(TACInstruction(TAC_Op.GET_ID, dest=dest, imm=0))

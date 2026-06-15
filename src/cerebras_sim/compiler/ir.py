@@ -6,6 +6,9 @@ class TAC_Op(Enum):
     # Memory
     LOAD_GLOBAL = auto()
     STORE_GLOBAL = auto()
+    SRAM_ALLOC = auto()
+    SRAM_LOAD = auto()
+    SRAM_STORE = auto()
     # Compute
     VADD = auto()
     VSUB = auto()
@@ -13,6 +16,9 @@ class TAC_Op(Enum):
     VDIV = auto()
     VFMADD = auto()
     VRELU = auto()
+    # Mesh
+    MESH_SHIFT = auto()
+    MESH_READ = auto()
     # System
     GET_ID = auto()
     # Control
