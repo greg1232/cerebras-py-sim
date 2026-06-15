@@ -40,12 +40,30 @@ To balance accuracy and speed, the simulator uses a **hybrid execution track**:
 The project implements a complete toolchain:
 **`Python DSL` $\rightarrow$ `Tungsten-IR` $\rightarrow$ `ISA Binary` $\rightarrow$ `Simulator`**
 
+### Programming Example
+Kernels are written in a CUDA-like Python DSL. For example, a simple SAXPY ($\mathbf{z} = \alpha \mathbf{x} + \mathbf{y}$) kernel:
+
+```python
+@cs3_kernel(block_w=16, block_h=16)
+def saxpy_kernel(ctx):
+    # Load inputs from global memory (Weight Server)
+    x = ctx.load_global(None, 0)
+    y = ctx.load_global(None, 4)
+    
+    # Compute: z = 2.0 * x + y
+    z = 2.0 * x + y
+    
+    # Store result back to global memory
+    ctx.store_global(None, 8, z)
+```
+
 1. **Frontend**: A CUDA-like DSL embedded in Python using `@cs3_kernel` decorators.
 2. **Intermediate Representation (Tungsten-IR)**: A dataflow-centric IR mapping compute nodes and synchronization points.
 3. **Compiler Backend**:
     - **Mapping & Scheduling**: Assigns IR nodes to the physical 2D mesh and manages the SRAM budget.
     - **Assembler**: Emits the final 32-bit binary stream.
 4. **Simulator Engine**: A Python-based engine that decodes the ISA and drives the hardware model.
+
 
 ---
 
